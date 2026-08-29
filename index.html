@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>8192分の1</title>
-<meta name="description" content="1/2の運試しを連続で勝ち抜け。13連勝で到達する 1/8192 を目指すだけのゲーム。実績54種、確率のはしご、オートモード。">
+<meta name="description" content="左右どちらかを選び続けて当たりを13連続で引けば 1/8192。運だけのゲーム。実績54種、確率のはしご、オートモード。">
 <meta property="og:title" content="8192分の1">
-<meta property="og:description" content="1/2を連続で勝ち抜き 1/8192(13連勝) を目指すだけのゲーム。実績54種。">
+<meta property="og:description" content="左右を選び続けて当たりを13連続。1/8192 を目指すだけのゲーム。実績54種。">
 <meta property="og:type" content="website">
 <style>
   :root{
@@ -44,14 +44,22 @@
   .streak{text-align:center;font-size:13px;color:var(--sub);margin-bottom:12px}
   .streak b{color:var(--gold);font-size:15px}
 
-  /* コイン */
-  .coinArea{display:flex;justify-content:center;align-items:center;height:132px;perspective:800px;margin:4px 0 8px}
-  .coin{width:104px;height:104px;position:relative;transform-style:preserve-3d;transition:transform .55s cubic-bezier(.2,.7,.2,1)}
-  .coin.flipping{transition:transform .55s cubic-bezier(.4,1.2,.5,1)}
-  .coin .face{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;
-    font-size:44px;font-weight:800;backface-visibility:hidden;border:4px solid rgba(0,0,0,.25)}
-  .coin .front{background:radial-gradient(circle at 35% 30%,#ffe9a8,#e8a91d);color:#5a3d00}
-  .coin .back{background:radial-gradient(circle at 35% 30%,#8fa6c9,#3f4f6b);color:#0d1017;transform:rotateY(180deg)}
+  /* ドア（左右選択） */
+  .doors{display:flex;gap:12px;margin:6px 0 4px}
+  .door{flex:1;height:150px;border:2px solid var(--line);border-radius:14px;background:linear-gradient(180deg,#232d40,#171d29);
+    color:var(--txt);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    font-weight:800;font-size:15px;letter-spacing:1px;transition:transform .08s,border-color .15s,background .15s;position:relative;overflow:hidden}
+  .door .arw{font-size:40px;line-height:1}
+  .door .mark{font-size:34px;opacity:0;transition:opacity .2s}
+  .door:not(:disabled):hover{border-color:var(--gold);transform:translateY(-2px)}
+  .door:not(:disabled):active{transform:translateY(1px)}
+  .door:disabled{cursor:default}
+  .door.pick{border-color:var(--gold)}
+  .door.reveal .arw{display:none}
+  .door.reveal .mark{opacity:1}
+  .door.hit{background:linear-gradient(180deg,#1e5b39,#123a25);border-color:var(--green)}
+  .door.miss{background:linear-gradient(180deg,#5b1e26,#3a1218);border-color:var(--red)}
+  .door.dim{opacity:.45}
 
   /* ボタン */
   .btnMain{width:100%;padding:16px;border:0;border-radius:14px;font-size:18px;font-weight:800;letter-spacing:1px;
@@ -135,7 +143,7 @@
 <div class="wrap">
   <header>
     <h1>8192分の1</h1>
-    <p>1/2 を連続で勝ち抜け。13連勝でたどり着く <b style="color:var(--gold)">1 / 8192</b> を目指すだけ。</p>
+    <p>左右どちらかを選び続けろ。当たりを13連続で引けば <b style="color:var(--gold)">1 / 8192</b>。</p>
   </header>
 
   <div class="stage">
@@ -143,24 +151,25 @@
       <div class="lbl">現在の到達確率</div>
       <div class="big" id="probBig">1 / 1</div>
     </div>
-    <div class="streak" id="streakTxt">スタート地点 ・ 次の一投で <b>1/2</b></div>
+    <div class="streak" id="streakTxt">スタート地点 ・ どちらかに当たり（1/2）</div>
 
-    <div class="coinArea">
-      <div class="coin" id="coin">
-        <div class="face front">◎</div>
-        <div class="face back">✕</div>
-      </div>
+    <div class="doors">
+      <button class="door" id="doorL" data-side="L">
+        <span class="arw">◀</span><span class="mark"></span><span class="cap">左</span>
+      </button>
+      <button class="door" id="doorR" data-side="R">
+        <span class="arw">▶</span><span class="mark"></span><span class="cap">右</span>
+      </button>
     </div>
-
-    <button class="btnMain" id="go">投げる（Space）</button>
+    <div class="locked" style="margin-top:4px">← → キーでも選べます</div>
 
     <div class="autoRow" id="autoRow" style="display:none">
       <button class="btnAuto" id="autoBtn">オート ▶</button>
       <label class="chk"><input type="checkbox" id="stopFail" checked>失敗で停止</label>
     </div>
-    <div class="locked" id="autoLock">オートモードは 1/8192 を1回達成すると解禁</div>
+    <div class="locked" id="autoLock">オートモード（自動でランダムに選ぶ）は 1/8192 を1回達成すると解禁</div>
 
-    <div class="log" id="log"><div>コインを投げよう。表(◎)が出れば1段前進、裏(✕)でスタートに逆戻り。</div></div>
+    <div class="log" id="log"><div>左右どちらかを選ぼう。当たり(◎)なら1段前進、はずれ(✕)でスタートに逆戻り。</div></div>
 
     <div class="ladder" id="ladder"></div>
   </div>
@@ -236,15 +245,16 @@ function probStr(n){
   return "1 / " + Math.pow(2,n).toLocaleString("en-US");
 }
 const $=s=>document.querySelector(s);
-const coin=$("#coin"), logEl=$("#log");
+const logEl=$("#log");
+const doorEls={L:$("#doorL"), R:$("#doorR")};
 
 function render(){
   const bigP = streak===0 ? "1 / 1" : probStr(streak);
   const pb=$("#probBig"); pb.textContent=bigP; pb.classList.toggle("hot", streak>=GOAL);
   if(streak===0){
-    $("#streakTxt").innerHTML='スタート地点 ・ 次の一投で <b>1/2</b>';
+    $("#streakTxt").innerHTML='スタート地点 ・ どちらかに当たり <b>(1/2)</b>';
   }else{
-    $("#streakTxt").innerHTML= streak+' 連勝中 ・ 次の一投で <b>1/'+Math.pow(2,streak+1).toLocaleString("en-US")+'</b>';
+    $("#streakTxt").innerHTML= streak+' 連続で的中 ・ 次を当てれば <b>1/'+Math.pow(2,streak+1).toLocaleString("en-US")+'</b>';
   }
   renderLadder(); renderStats(); renderTable(); renderAch();
   $("#autoRow").style.display = S.autoUnlocked ? "flex":"none";
@@ -267,34 +277,48 @@ function renderLadder(){
 }
 
 // ---------- ゲーム進行 ----------
-function flip(){
+function setDoorsDisabled(v){ doorEls.L.disabled=v; doorEls.R.disabled=v; }
+function resetDoors(){
+  for(const k of ["L","R"]){
+    const d=doorEls[k];
+    d.classList.remove("pick","reveal","hit","miss","dim");
+    d.querySelector(".mark").textContent="";
+  }
+}
+
+function choose(side){
   if(busy) return;
-  busy=true; $("#go").disabled=true;
+  busy=true; setDoorsDisabled(true);
 
-  // 稀にコインが立つ（エッジ）: 約1/1500
-  const edge = Math.random()< (1/1500);
-  const win = Math.random()<0.5;
+  // 当たりの扉をランダムに決定（左右それぞれ 1/2）
+  const winSide = Math.random()<0.5 ? "L" : "R";
+  const win = (side===winSide);
+  // 稀な演出（両方はずれ扱いの「異変」）: 約1/1500、ノーカウント
+  const edge = Math.random() < (1/1500);
 
-  // 演出
-  const spins = 3;
-  const finalDeg = win ? spins*360 : spins*360+180;
-  coin.classList.add("flipping");
-  coin.style.transform = "rotateY("+finalDeg+"deg)";
-  const settle = auto ? 90 : 560;
+  const picked=doorEls[side], other=doorEls[side==="L"?"R":"L"];
+  picked.classList.add("pick");
 
+  const settle = auto ? 110 : 520;
   setTimeout(()=>{
-    coin.classList.remove("flipping");
-    coin.style.transform = "rotateY("+((win?0:180))+"deg)";
+    // 両扉の中身を公開
+    doorEls[winSide].classList.add("reveal","hit");
+    doorEls[winSide].querySelector(".mark").textContent="◎";
+    const lose = winSide==="L"?"R":"L";
+    doorEls[lose].classList.add("reveal","miss");
+    doorEls[lose].querySelector(".mark").textContent="✕";
+    if(!win) other.classList.add("dim");
+
     resolve(win, edge);
     busy=false;
-    $("#go").disabled=false;
-    if(auto) scheduleAuto();
+
+    setTimeout(()=>{ resetDoors(); setDoorsDisabled(false); if(auto) scheduleAuto(); }, auto?90:650);
   }, settle);
 }
 
 function resolve(win, edge){
   S.flips++;
-  if(edge){ S.edgeCount++; addLog("コインが…立った！？（ノーカウント）","",true); check(); save(); return; }
+  if(edge){ S.edgeCount++; addLog("扉の奥で何かが光った…！？（ノーカウント）","",true); check(); save(); return; }
 
   if(win){
     S.success++; streak++; failsInRow=0;
@@ -309,10 +333,10 @@ function resolve(win, edge){
       celebrate();
       addLog("🎉 1/8192 到達！！（通算 "+S.clearCount+" 回）","ok");
     }else if(streak>GOAL){
-      addLog("表 ◎ … "+streak+"連勝！ "+probStr(streak),"ok");
+      addLog("◎ 的中 … "+streak+"連続！ "+probStr(streak),"ok");
       if([15,16,18,20,22,25].includes(streak)) toast("👑 "+probStr(streak)+" 到達");
     }else{
-      addLog("表 ◎ … "+streak+"連勝（"+probStr(streak)+"）","ok");
+      addLog("◎ 的中 … "+streak+"連続（"+probStr(streak)+"）","ok");
     }
   }else{
     S.fail++;
@@ -324,8 +348,8 @@ function resolve(win, edge){
     if(lost>=10) S.fallFrom10++;
     if(lost>=12) S.fallFrom12++;
     if(lost>=13) S.fallFrom13++;
-    if(lost>=8) toast("💥 "+lost+"連勝からの転落…");
-    addLog("裏 ✕ … "+(lost>0? lost+"連勝が振り出しに戻った":"スタートで足踏み"),"ng");
+    if(lost>=8) toast("💥 "+lost+"連続からの転落…");
+    addLog("✕ はずれ … "+(lost>0? lost+"連続的中が振り出しに戻った":"スタートで足踏み"),"ng");
     streak=0; runMax=0;
     if(auto && $("#stopFail").checked) stopAuto();
   }
@@ -344,7 +368,7 @@ function addLog(t,cls,gold){
 }
 
 // ---------- オート ----------
-function scheduleAuto(){ if(!auto) return; autoTimer=setTimeout(()=>{ if(auto) flip(); }, 120); }
+function scheduleAuto(){ if(!auto) return; autoTimer=setTimeout(()=>{ if(auto) choose(Math.random()<0.5?"L":"R"); }, 140); }
 function startAuto(){ if(auto) return; auto=true; $("#autoBtn").textContent="オート ⏸"; $("#autoBtn").classList.add("on"); scheduleAuto(); }
 function stopAuto(){ auto=false; clearTimeout(autoTimer); $("#autoBtn").textContent="オート ▶"; $("#autoBtn").classList.remove("on"); }
 
@@ -404,7 +428,7 @@ const ACH=[
   {id:"lk8192",ic:"📗",t:"確率どおり",d:"最初のクリアを8192投以内で達成",g:s=>s.firstClearFlips!==null&&s.firstClearFlips<=8192},
   {id:"lk300",ic:"📘",t:"持ってる",d:"最初のクリアを300投以内で達成",g:s=>s.firstClearFlips!==null&&s.firstClearFlips<=300},
   {id:"lk40",ic:"📕",t:"何かがおかしい",d:"最初のクリアを40投以内で達成",g:s=>s.firstClearFlips!==null&&s.firstClearFlips<=40},
-  {id:"edge",ic:"🪤",t:"コインが立った",d:"投げたコインがまさかの直立",g:s=>s.edgeCount>=1},
+  {id:"edge",ic:"🪤",t:"扉の奥の光",d:"選んだ瞬間、扉の奥で何かが光った",g:s=>s.edgeCount>=1},
   {id:"auto",ic:"🤖",t:"全自動運試し",d:"オートモードを解禁",g:s=>s.autoUnlocked},
   {id:"time1h",ic:"🕰️",t:"1時間の孤独",d:"通算プレイ時間が1時間",g:s=>s.playMs>=3600000},
   {id:"swamp",ic:"🐸",t:"底なし沼",d:"1000投してもまだ1/8192未達",g:s=>s.flips>=1000&&s.clearCount===0},
@@ -492,8 +516,13 @@ function celebrate(){
 
 // ---------- 入力 ----------
 let lastMark=Date.now(), wiped=false;
-$("#go").addEventListener("click",()=>flip());
-document.addEventListener("keydown",e=>{ if(e.code==="Space"){ e.preventDefault(); if(!auto) flip(); } });
+doorEls.L.addEventListener("click",()=>{ if(!auto) choose("L"); });
+doorEls.R.addEventListener("click",()=>{ if(!auto) choose("R"); });
+document.addEventListener("keydown",e=>{
+  if(auto) return;
+  if(e.code==="ArrowLeft"){ e.preventDefault(); choose("L"); }
+  else if(e.code==="ArrowRight"){ e.preventDefault(); choose("R"); }
+});
 $("#autoBtn").addEventListener("click",()=>{ auto?stopAuto():startAuto(); });
 $("#reset").addEventListener("click",()=>{
   if(confirm("本当に全データを消去しますか？（連勝記録・実績・統計すべて）")){
