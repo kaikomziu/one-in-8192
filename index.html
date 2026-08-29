@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>8192分の1</title>
+<meta name="description" content="1/2の運試しを連続で勝ち抜け。13連勝で到達する 1/8192 を目指すだけのゲーム。実績54種、確率のはしご、オートモード。">
+<meta property="og:title" content="8192分の1">
+<meta property="og:description" content="1/2を連続で勝ち抜き 1/8192(13連勝) を目指すだけのゲーム。実績54種。">
+<meta property="og:type" content="website">
+<style>
+  :root{
+    --bg:#0d1017; --bg2:#141a26; --panel:#1a2130; --panel2:#222b3d;
+    --line:#2e3b52; --txt:#e8edf7; --sub:#8a97b0;
+    --gold:#ffcf4a; --gold2:#ffe08a; --green:#3ddc84; --red:#ff5d6c; --blue:#5aa9ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(1200px 700px at 50% -10%, #1b2536, var(--bg) 60%);
+    color:var(--txt);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    line-height:1.6; overflow-x:hidden;
+  }
+  .wrap{max-width:520px;margin:0 auto;padding:16px 14px 60px;}
+  header{text-align:center;padding:8px 0 14px}
+  h1{font-size:34px;letter-spacing:2px;font-weight:800;
+     background:linear-gradient(180deg,var(--gold2),var(--gold));
+     -webkit-background-clip:text;background-clip:text;color:transparent;
+     text-shadow:0 2px 20px rgba(255,207,74,.25)}
+  header p{color:var(--sub);font-size:12.5px;margin-top:2px}
+
+  /* ===== メインパネル ===== */
+  .stage{
+    background:linear-gradient(180deg,var(--panel),var(--bg2));
+    border:1px solid var(--line);border-radius:18px;padding:18px 16px 20px;
+    box-shadow:0 12px 40px rgba(0,0,0,.35);
+  }
+  .prob{text-align:center;margin-bottom:6px}
+  .prob .lbl{font-size:12px;color:var(--sub);letter-spacing:1px}
+  .prob .big{font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;
+    background:linear-gradient(180deg,#fff,#cdd8ea);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .prob .big.hot{background:linear-gradient(180deg,var(--gold2),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .streak{text-align:center;font-size:13px;color:var(--sub);margin-bottom:12px}
+  .streak b{color:var(--gold);font-size:15px}
+
+  /* コイン */
+  .coinArea{display:flex;justify-content:center;align-items:center;height:132px;perspective:800px;margin:4px 0 8px}
+  .coin{width:104px;height:104px;position:relative;transform-style:preserve-3d;transition:transform .55s cubic-bezier(.2,.7,.2,1)}
+  .coin.flipping{transition:transform .55s cubic-bezier(.4,1.2,.5,1)}
+  .coin .face{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:44px;font-weight:800;backface-visibility:hidden;border:4px solid rgba(0,0,0,.25)}
+  .coin .front{background:radial-gradient(circle at 35% 30%,#ffe9a8,#e8a91d);color:#5a3d00}
+  .coin .back{background:radial-gradient(circle at 35% 30%,#8fa6c9,#3f4f6b);color:#0d1017;transform:rotateY(180deg)}
+
+  /* ボタン */
+  .btnMain{width:100%;padding:16px;border:0;border-radius:14px;font-size:18px;font-weight:800;letter-spacing:1px;
+    background:linear-gradient(180deg,var(--gold2),var(--gold));color:#3a2a00;cursor:pointer;
+    box-shadow:0 8px 22px rgba(255,207,74,.3);transition:transform .06s}
+  .btnMain:active{transform:translateY(2px)}
+  .btnMain:disabled{opacity:.55;box-shadow:none;cursor:default}
+
+  .autoRow{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+  .btnAuto{padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--txt);
+    font-size:13px;font-weight:700;cursor:pointer}
+  .btnAuto.on{background:var(--green);color:#052; border-color:var(--green)}
+  .chk{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:5px;cursor:pointer}
+  .chk input{width:15px;height:15px;accent-color:var(--gold)}
+  .locked{font-size:11.5px;color:var(--sub);text-align:center;margin-top:8px}
+
+  .log{margin-top:12px;min-height:66px;background:#0c1119;border:1px solid var(--line);border-radius:10px;padding:8px 10px;
+    font-size:12.5px;font-variant-numeric:tabular-nums}
+  .log div{opacity:.55}
+  .log div:last-child{opacity:1;color:var(--gold2)}
+  .log .ok{color:var(--green)}
+  .log .ng{color:var(--red)}
+
+  /* ===== はしご ===== */
+  .ladder{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;
+    max-height:230px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:3px}
+  .rung{display:flex;justify-content:space-between;align-items:center;padding:5px 10px;border-radius:8px;font-size:13px;
+    font-variant-numeric:tabular-nums;color:var(--sub)}
+  .rung .n{font-weight:700}
+  .rung.done{color:var(--txt)}
+  .rung.cur{background:linear-gradient(90deg,rgba(255,207,74,.22),transparent);color:var(--gold2);font-weight:800}
+  .rung.goal .n{color:var(--gold)}
+  .rung .cnt{font-size:11px;color:var(--sub)}
+
+  /* ===== タブ ===== */
+  nav{display:flex;gap:6px;margin:18px 0 10px}
+  nav button{flex:1;padding:9px 4px;border:1px solid var(--line);background:var(--panel);color:var(--sub);
+    border-radius:10px;font-size:12.5px;font-weight:700;cursor:pointer}
+  nav button.active{background:var(--gold);color:#3a2a00;border-color:var(--gold)}
+  .tab{display:none}
+  .tab.show{display:block}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .stat .k{font-size:11px;color:var(--sub)}
+  .stat .v{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+  .stat.wide{grid-column:1/3}
+
+  .achList{display:flex;flex-direction:column;gap:7px}
+  .ach{display:flex;gap:10px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:9px 11px;opacity:.5}
+  .ach.got{opacity:1;border-color:rgba(255,207,74,.4)}
+  .ach .ic{font-size:20px;line-height:1.2}
+  .ach .t{font-weight:800;font-size:13.5px}
+  .ach .d{font-size:11.5px;color:var(--sub)}
+  .ach.got .t{color:var(--gold2)}
+  .achHead{font-size:12px;color:var(--sub);margin:4px 2px 2px}
+
+  .set button{width:100%;padding:12px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);
+    font-weight:700;cursor:pointer;font-size:14px}
+  .set p{font-size:12px;color:var(--sub);margin:10px 2px}
+  .changelog{font-size:12px;color:var(--sub)}
+  .changelog h3{color:var(--txt);font-size:13px;margin:10px 0 4px}
+  .changelog li{margin-left:16px}
+
+  /* トースト */
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120px);
+    background:linear-gradient(180deg,#2a2f1a,#1a1e12);border:1px solid var(--gold);color:var(--gold2);
+    padding:11px 18px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.5);
+    transition:transform .4s cubic-bezier(.2,1.3,.4,1);z-index:50;max-width:90vw;text-align:center}
+  #toast.show{transform:translateX(-50%) translateY(0)}
+
+  /* 花火 */
+  #fx{position:fixed;inset:0;pointer-events:none;z-index:40}
+  .spark{position:absolute;width:9px;height:9px;border-radius:50%}
+
+  @media(max-width:380px){ h1{font-size:29px} .prob .big{font-size:36px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>8192分の1</h1>
+    <p>1/2 を連続で勝ち抜け。13連勝でたどり着く <b style="color:var(--gold)">1 / 8192</b> を目指すだけ。</p>
+  </header>
+
+  <div class="stage">
+    <div class="prob">
+      <div class="lbl">現在の到達確率</div>
+      <div class="big" id="probBig">1 / 1</div>
+    </div>
+    <div class="streak" id="streakTxt">スタート地点 ・ 次の一投で <b>1/2</b></div>
+
+    <div class="coinArea">
+      <div class="coin" id="coin">
+        <div class="face front">◎</div>
+        <div class="face back">✕</div>
+      </div>
+    </div>
+
+    <button class="btnMain" id="go">投げる（Space）</button>
+
+    <div class="autoRow" id="autoRow" style="display:none">
+      <button class="btnAuto" id="autoBtn">オート ▶</button>
+      <label class="chk"><input type="checkbox" id="stopFail" checked>失敗で停止</label>
+    </div>
+    <div class="locked" id="autoLock">オートモードは 1/8192 を1回達成すると解禁</div>
+
+    <div class="log" id="log"><div>コインを投げよう。表(◎)が出れば1段前進、裏(✕)でスタートに逆戻り。</div></div>
+
+    <div class="ladder" id="ladder"></div>
+  </div>
+
+  <nav>
+    <button data-tab="stats" class="active">統計</button>
+    <button data-tab="table">確率表</button>
+    <button data-tab="ach">実績</button>
+    <button data-tab="set">設定</button>
+  </nav>
+
+  <div class="tab show" id="tab-stats">
+    <div class="grid" id="statGrid"></div>
+  </div>
+
+  <div class="tab" id="tab-table">
+    <div class="achHead">各段に「到達した回数」（＝そのn連勝を達成した回数）</div>
+    <div class="achList" id="probTable"></div>
+  </div>
+
+  <div class="tab" id="tab-ach">
+    <div class="achHead" id="achCount"></div>
+    <div class="achList" id="achList"></div>
+  </div>
+
+  <div class="tab set" id="tab-set">
+    <p>セーブデータはこのブラウザ内にのみ保存されます。</p>
+    <button id="reset">データを全消去してやり直す</button>
+    <div class="changelog" id="changelog"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="fx"></div>
+
+<script src="js/version.js"></script>
+<script>
+(function(){
+"use strict";
+const KEY="onein8192_v1";
+const MAXRUNG=25; // 1/2 ... 1/33554432
+const GOAL=13;    // 1/8192
+
+// ---------- セーブ ----------
+const DEF={
+  flips:0, success:0, fail:0,
+  best:0, clearCount:0,
+  rungCounts:{},        // n -> 到達回数
+  maxFailsInRow:0,
+  fallFrom5:0, fallFrom8:0, fallFrom10:0, fallFrom12:0, fallFrom13:0,
+  edgeCount:0,
+  autoUnlocked:false,
+  firstClearFlips:null,
+  playMs:0,
+  ach:{},
+};
+let S=load();
+function load(){
+  try{ const j=JSON.parse(localStorage.getItem(KEY)); if(j&&typeof j==="object") return Object.assign({},DEF,j,{rungCounts:Object.assign({},j.rungCounts||{}),ach:Object.assign({},j.ach||{})}); }catch(e){}
+  return JSON.parse(JSON.stringify(DEF));
+}
+let saveT=0;
+function save(){ if(wiped) return; clearTimeout(saveT); saveT=setTimeout(()=>{ if(wiped)return; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} },120); }
+
+// ---------- ランタイム ----------
+let streak=0, failsInRow=0, runMax=0, busy=false, auto=false, autoTimer=null;
+let sessionClears=0;
+const startTime=Date.now();
+
+// ---------- 確率表示 ----------
+function probStr(n){
+  // 2^n を桁区切り
+  return "1 / " + Math.pow(2,n).toLocaleString("en-US");
+}
+const $=s=>document.querySelector(s);
+const coin=$("#coin"), logEl=$("#log");
+
+function render(){
+  const bigP = streak===0 ? "1 / 1" : probStr(streak);
+  const pb=$("#probBig"); pb.textContent=bigP; pb.classList.toggle("hot", streak>=GOAL);
+  if(streak===0){
+    $("#streakTxt").innerHTML='スタート地点 ・ 次の一投で <b>1/2</b>';
+  }else{
+    $("#streakTxt").innerHTML= streak+' 連勝中 ・ 次の一投で <b>1/'+Math.pow(2,streak+1).toLocaleString("en-US")+'</b>';
+  }
+  renderLadder(); renderStats(); renderTable(); renderAch();
+  $("#autoRow").style.display = S.autoUnlocked ? "flex":"none";
+  $("#autoLock").style.display = S.autoUnlocked ? "none":"block";
+}
+
+function renderLadder(){
+  const top=Math.max(GOAL, S.best, streak);
+  const el=$("#ladder"); el.innerHTML="";
+  for(let n=1;n<=top;n++){
+    const d=document.createElement("div");
+    d.className="rung"+(streak>=n?" done":"")+(streak===n?" cur":"")+(n===GOAL?" goal":"");
+    const c=S.rungCounts[n]||0;
+    d.innerHTML='<span class="n">'+(n===GOAL?"★ ":"")+probStr(n).replace("1 / ","1/")+(n>GOAL?"":"")+'</span>'+
+                '<span class="cnt">'+n+'連勝'+(c?' ・ '+c+'回':'')+'</span>';
+    el.appendChild(d);
+  }
+  const cur=el.querySelector(".cur");
+  if(cur) el.scrollTop = cur.offsetTop - el.clientHeight/2 + cur.offsetHeight/2;
+}
+
+// ---------- ゲーム進行 ----------
+function flip(){
+  if(busy) return;
+  busy=true; $("#go").disabled=true;
+
+  // 稀にコインが立つ（エッジ）: 約1/1500
+  const edge = Math.random()< (1/1500);
+  const win = Math.random()<0.5;
+
+  // 演出
+  const spins = 3;
+  const finalDeg = win ? spins*360 : spins*360+180;
+  coin.classList.add("flipping");
+  coin.style.transform = "rotateY("+finalDeg+"deg)";
+  const settle = auto ? 90 : 560;
+
+  setTimeout(()=>{
+    coin.classList.remove("flipping");
+    coin.style.transform = "rotateY("+((win?0:180))+"deg)";
+    resolve(win, edge);
+    busy=false;
+    $("#go").disabled=false;
+    if(auto) scheduleAuto();
+  }, settle);
+}
+
+function resolve(win, edge){
+  S.flips++;
+  if(edge){ S.edgeCount++; addLog("コインが…立った！？（ノーカウント）","",true); check(); save(); return; }
+
+  if(win){
+    S.success++; streak++; failsInRow=0;
+    if(streak>runMax) runMax=streak;
+    S.rungCounts[streak]=(S.rungCounts[streak]||0)+1;
+    if(streak>S.best) S.best=streak;
+
+    if(streak===GOAL){
+      S.clearCount++; sessionClears++;
+      if(S.firstClearFlips===null) S.firstClearFlips=S.flips;
+      if(!S.autoUnlocked){ S.autoUnlocked=true; toast("🔓 オートモード解禁！"); }
+      celebrate();
+      addLog("🎉 1/8192 到達！！（通算 "+S.clearCount+" 回）","ok");
+    }else if(streak>GOAL){
+      addLog("表 ◎ … "+streak+"連勝！ "+probStr(streak),"ok");
+      if([15,16,18,20,22,25].includes(streak)) toast("👑 "+probStr(streak)+" 到達");
+    }else{
+      addLog("表 ◎ … "+streak+"連勝（"+probStr(streak)+"）","ok");
+    }
+  }else{
+    S.fail++;
+    const lost=streak;
+    failsInRow++;
+    if(failsInRow>S.maxFailsInRow) S.maxFailsInRow=failsInRow;
+    if(lost>=5) S.fallFrom5++;
+    if(lost>=8) S.fallFrom8++;
+    if(lost>=10) S.fallFrom10++;
+    if(lost>=12) S.fallFrom12++;
+    if(lost>=13) S.fallFrom13++;
+    if(lost>=8) toast("💥 "+lost+"連勝からの転落…");
+    addLog("裏 ✕ … "+(lost>0? lost+"連勝が振り出しに戻った":"スタートで足踏み"),"ng");
+    streak=0; runMax=0;
+    if(auto && $("#stopFail").checked) stopAuto();
+  }
+  check();
+  render();
+  save();
+}
+
+function addLog(t,cls,gold){
+  const d=document.createElement("div");
+  if(cls) d.className=cls;
+  d.textContent=t;
+  logEl.appendChild(d);
+  while(logEl.children.length>6) logEl.removeChild(logEl.firstChild);
+  logEl.scrollTop=logEl.scrollHeight;
+}
+
+// ---------- オート ----------
+function scheduleAuto(){ if(!auto) return; autoTimer=setTimeout(()=>{ if(auto) flip(); }, 120); }
+function startAuto(){ if(auto) return; auto=true; $("#autoBtn").textContent="オート ⏸"; $("#autoBtn").classList.add("on"); scheduleAuto(); }
+function stopAuto(){ auto=false; clearTimeout(autoTimer); $("#autoBtn").textContent="オート ▶"; $("#autoBtn").classList.remove("on"); }
+
+// ---------- 実績 ----------
+const ACH=[
+  // 到達
+  {id:"r3",ic:"🌱",t:"はじめの一歩",d:"3連勝（1/8）に到達",g:s=>s.best>=3},
+  {id:"r5",ic:"🍀",t:"ツキはじめ",d:"5連勝（1/32）に到達",g:s=>s.best>=5},
+  {id:"r7",ic:"✨",t:"豪運の片鱗",d:"7連勝（1/128）に到達",g:s=>s.best>=7},
+  {id:"r8",ic:"🎯",t:"256分の1",d:"8連勝（1/256）に到達",g:s=>s.best>=8},
+  {id:"r9",ic:"🔥",t:"止まらない",d:"9連勝（1/512）に到達",g:s=>s.best>=9},
+  {id:"r10",ic:"💫",t:"千載一遇",d:"10連勝（1/1024）に到達",g:s=>s.best>=10},
+  {id:"r11",ic:"⚡",t:"2048の領域",d:"11連勝（1/2048）に到達",g:s=>s.best>=11},
+  {id:"r12",ic:"🧊",t:"4096の壁",d:"12連勝（1/4096）に到達",g:s=>s.best>=12},
+  {id:"r13",ic:"👑",t:"8192分の1 到達者",d:"13連勝で 1/8192 に到達",g:s=>s.best>=13},
+  {id:"r14",ic:"🚀",t:"規格外",d:"14連勝（1/16384）に到達",g:s=>s.best>=14},
+  {id:"r15",ic:"🌟",t:"神域",d:"15連勝（1/32768）に到達",g:s=>s.best>=15},
+  {id:"r16",ic:"💎",t:"65536の奇跡",d:"16連勝（1/65536）に到達",g:s=>s.best>=16},
+  {id:"r17",ic:"🛸",t:"理解不能",d:"17連勝（1/131072）に到達",g:s=>s.best>=17},
+  {id:"r18",ic:"🌌",t:"桁が違う",d:"18連勝（1/262144）に到達",g:s=>s.best>=18},
+  {id:"r20",ic:"🏆",t:"100万分の1",d:"20連勝（1/1048576）に到達",g:s=>s.best>=20},
+  {id:"r22",ic:"🪐",t:"宇宙の采配",d:"22連勝（1/4194304）に到達",g:s=>s.best>=22},
+  {id:"r25",ic:"♾️",t:"確率の外側",d:"25連勝（1/33554432）に到達",g:s=>s.best>=25},
+  // 試行回数
+  {id:"f10",ic:"🪙",t:"とりあえず",d:"通算10投",g:s=>s.flips>=10},
+  {id:"f50",ic:"🪙",t:"手が慣れてきた",d:"通算50投",g:s=>s.flips>=50},
+  {id:"f100",ic:"🪙",t:"100投",d:"通算100投",g:s=>s.flips>=100},
+  {id:"f500",ic:"🪙",t:"常連",d:"通算500投",g:s=>s.flips>=500},
+  {id:"f1000",ic:"🎰",t:"1000投",d:"通算1000投",g:s=>s.flips>=1000},
+  {id:"f3000",ic:"🎰",t:"沼にはまる",d:"通算3000投",g:s=>s.flips>=3000},
+  {id:"f5000",ic:"🎰",t:"引き返せない",d:"通算5000投",g:s=>s.flips>=5000},
+  {id:"f10000",ic:"🌀",t:"1万投",d:"通算10000投",g:s=>s.flips>=10000},
+  {id:"f30000",ic:"🌀",t:"確率を憎む",d:"通算30000投",g:s=>s.flips>=30000},
+  {id:"f100000",ic:"🕳️",t:"10万投",d:"通算100000投",g:s=>s.flips>=100000},
+  // クリア回数
+  {id:"c1",ic:"🥇",t:"やった",d:"1/8192 を1回達成",g:s=>s.clearCount>=1},
+  {id:"c3",ic:"🥈",t:"まぐれじゃない",d:"1/8192 を3回達成",g:s=>s.clearCount>=3},
+  {id:"c5",ic:"🥉",t:"常習犯",d:"1/8192 を5回達成",g:s=>s.clearCount>=5},
+  {id:"c10",ic:"🎖️",t:"8192コレクター",d:"1/8192 を10回達成",g:s=>s.clearCount>=10},
+  {id:"c25",ic:"🏵️",t:"運を飼いならす",d:"1/8192 を25回達成",g:s=>s.clearCount>=25},
+  {id:"c50",ic:"🏅",t:"確率破り",d:"1/8192 を50回達成",g:s=>s.clearCount>=50},
+  {id:"c100",ic:"👺",t:"1/8192 の主",d:"1/8192 を100回達成",g:s=>s.clearCount>=100},
+  {id:"c2ses",ic:"🍭",t:"二度あることは",d:"1回のプレイで 1/8192 に2回到達",g:()=>sessionClears>=2},
+  // 転落
+  {id:"d5",ic:"😇",t:"あるある",d:"5連勝以上から転落",g:s=>s.fallFrom5>=1},
+  {id:"d8",ic:"😵",t:"やめとけばよかった",d:"8連勝以上から転落",g:s=>s.fallFrom8>=1},
+  {id:"d10",ic:"💀",t:"天国から地獄",d:"10連勝以上から転落",g:s=>s.fallFrom10>=1},
+  {id:"d12",ic:"⚰️",t:"4096からのゼロ",d:"12連勝以上から転落",g:s=>s.fallFrom12>=1},
+  {id:"d13",ic:"🌋",t:"到達後の絶望",d:"13連勝以上から転落",g:s=>s.fallFrom13>=1},
+  {id:"d10x5",ic:"🧟",t:"学習しない",d:"10連勝以上からの転落を5回",g:s=>s.fallFrom10>=5},
+  // 連敗
+  {id:"l5",ic:"🥶",t:"寒い日",d:"5連敗",g:s=>s.maxFailsInRow>=5},
+  {id:"l8",ic:"🧊",t:"凍てつく運",d:"8連敗",g:s=>s.maxFailsInRow>=8},
+  {id:"l10",ic:"❄️",t:"見放された",d:"10連敗",g:s=>s.maxFailsInRow>=10},
+  {id:"l13",ic:"⛄",t:"裏の8192分の1",d:"13連敗（これも1/8192）",g:s=>s.maxFailsInRow>=13},
+  // 運・特殊
+  {id:"lk8192",ic:"📗",t:"確率どおり",d:"最初のクリアを8192投以内で達成",g:s=>s.firstClearFlips!==null&&s.firstClearFlips<=8192},
+  {id:"lk300",ic:"📘",t:"持ってる",d:"最初のクリアを300投以内で達成",g:s=>s.firstClearFlips!==null&&s.firstClearFlips<=300},
+  {id:"lk40",ic:"📕",t:"何かがおかしい",d:"最初のクリアを40投以内で達成",g:s=>s.firstClearFlips!==null&&s.firstClearFlips<=40},
+  {id:"edge",ic:"🪤",t:"コインが立った",d:"投げたコインがまさかの直立",g:s=>s.edgeCount>=1},
+  {id:"auto",ic:"🤖",t:"全自動運試し",d:"オートモードを解禁",g:s=>s.autoUnlocked},
+  {id:"time1h",ic:"🕰️",t:"1時間の孤独",d:"通算プレイ時間が1時間",g:s=>s.playMs>=3600000},
+  {id:"swamp",ic:"🐸",t:"底なし沼",d:"1000投してもまだ1/8192未達",g:s=>s.flips>=1000&&s.clearCount===0},
+  {id:"even",ic:"⚖️",t:"きれいに半々",d:"100投以上で表と裏の数が完全一致",g:s=>s.flips>=100&&s.success===s.fail},
+  {id:"all",ic:"🌈",t:"コンプリート",d:"他のすべての実績を解除",g:s=>ACH.filter(a=>a.id!=="all").every(a=>S.ach[a.id])},
+];
+
+function check(){
+  let got=[];
+  for(const a of ACH){
+    if(!S.ach[a.id] && a.g(S)){ S.ach[a.id]=Date.now(); got.push(a); }
+  }
+  if(got.length){
+    got.forEach((a,i)=> setTimeout(()=>toast("🏅 実績: "+a.t), 400*i));
+    save();
+  }
+}
+
+// ---------- 描画: 統計/表/実績 ----------
+function fmt(n){ return n.toLocaleString("ja-JP"); }
+function dur(ms){ const s=Math.floor(ms/1000); const h=Math.floor(s/3600),m=Math.floor(s%3600/60); return h+"時間"+m+"分"; }
+function renderStats(){
+  const rate = S.flips? (S.success/S.flips*100).toFixed(1):"0.0";
+  const g=[
+    ["総試行回数",fmt(S.flips)],
+    ["現在の連勝",streak+" 連勝"],
+    ["最高連勝",S.best+" 連勝"],
+    ["最高到達確率", S.best? probStr(S.best) : "-"],
+    ["表 / 裏", fmt(S.success)+" / "+fmt(S.fail)],
+    ["勝率", rate+" %"],
+    ["1/8192 到達回数", fmt(S.clearCount)+" 回"],
+    ["最長連敗", S.maxFailsInRow+" 連敗"],
+    ["12連勝以上からの転落", fmt(S.fallFrom12)+" 回"],
+    ["初クリアまでの投数", S.firstClearFlips? fmt(S.firstClearFlips)+" 投":"-"],
+  ];
+  const el=$("#statGrid"); el.innerHTML="";
+  g.forEach(([k,v])=>{ const d=document.createElement("div"); d.className="stat"; d.innerHTML='<div class="k">'+k+'</div><div class="v">'+v+'</div>'; el.appendChild(d); });
+  const w=document.createElement("div"); w.className="stat wide";
+  w.innerHTML='<div class="k">通算プレイ時間</div><div class="v">'+dur(S.playMs+(Date.now()-lastMark))+'</div>';
+  el.appendChild(w);
+}
+function renderTable(){
+  const el=$("#probTable"); el.innerHTML="";
+  const top=Math.max(GOAL,S.best);
+  for(let n=1;n<=Math.max(top,GOAL);n++){
+    const c=S.rungCounts[n]||0;
+    const d=document.createElement("div"); d.className="ach"+(c?" got":"");
+    d.innerHTML='<div class="ic">'+(n===GOAL?"★":(n>GOAL?"👑":"•"))+'</div><div><div class="t">'+n+'連勝 ・ '+probStr(n)+'</div><div class="d">到達 '+c+' 回</div></div>';
+    el.appendChild(d);
+  }
+}
+function renderAch(){
+  const got=ACH.filter(a=>S.ach[a.id]).length;
+  $("#achCount").textContent="解除 "+got+" / "+ACH.length;
+  const el=$("#achList"); el.innerHTML="";
+  ACH.forEach(a=>{
+    const d=document.createElement("div"); d.className="ach"+(S.ach[a.id]?" got":"");
+    d.innerHTML='<div class="ic">'+a.ic+'</div><div><div class="t">'+a.t+'</div><div class="d">'+a.d+'</div></div>';
+    el.appendChild(d);
+  });
+}
+
+// ---------- toast / 花火 ----------
+let toastT=0;
+function toast(msg){
+  const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2200);
+}
+function celebrate(){
+  const fx=$("#fx");
+  const colors=["#ffcf4a","#ff5d6c","#5aa9ff","#3ddc84","#ffffff","#c77dff"];
+  for(let i=0;i<80;i++){
+    const s=document.createElement("div"); s.className="spark";
+    s.style.background=colors[i%colors.length];
+    s.style.left="50%"; s.style.top="40%";
+    fx.appendChild(s);
+    const ang=Math.random()*Math.PI*2, v=120+Math.random()*260;
+    const dx=Math.cos(ang)*v, dy=Math.sin(ang)*v;
+    s.animate([
+      {transform:"translate(0,0) scale(1)",opacity:1},
+      {transform:"translate("+dx+"px,"+(dy+180)+"px) scale(.3)",opacity:0}
+    ],{duration:1100+Math.random()*700,easing:"cubic-bezier(.1,.7,.3,1)"}).onfinish=()=>s.remove();
+  }
+}
+
+// ---------- 入力 ----------
+let lastMark=Date.now(), wiped=false;
+$("#go").addEventListener("click",()=>flip());
+document.addEventListener("keydown",e=>{ if(e.code==="Space"){ e.preventDefault(); if(!auto) flip(); } });
+$("#autoBtn").addEventListener("click",()=>{ auto?stopAuto():startAuto(); });
+$("#reset").addEventListener("click",()=>{
+  if(confirm("本当に全データを消去しますか？（連勝記録・実績・統計すべて）")){
+    wiped=true; stopAuto(); localStorage.removeItem(KEY); location.reload();
+  }
+});
+document.querySelectorAll("nav button").forEach(b=>{
+  b.addEventListener("click",()=>{
+    document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("show"));
+    b.classList.add("active");
+    $("#tab-"+b.dataset.tab).classList.add("show");
+  });
+});
+
+// プレイ時間の計測（lastMark からの経過を加算）
+function accrue(){ const now=Date.now(); S.playMs+=now-lastMark; lastMark=now; }
+setInterval(()=>{ accrue(); check(); save(); },15000);
+window.addEventListener("beforeunload",()=>{ if(wiped)return; accrue(); try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} });
+document.addEventListener("visibilitychange",()=>{ accrue(); if(!document.hidden) lastMark=Date.now(); save(); });
+
+// changelog
+(function(){
+  const el=$("#changelog"); if(!window.CHANGELOG) return;
+  el.innerHTML="<h3>更新履歴</h3>"+window.CHANGELOG.map(c=>
+    '<div style="margin-bottom:8px"><b style="color:var(--txt)">v'+c.v+'</b> <span>('+c.date+')</span><ul>'+
+    c.notes.map(n=>'<li>'+n+'</li>').join("")+'</ul></div>').join("");
+})();
+
+check();
+render();
+})();
+</script>
+</body>
+</html>
