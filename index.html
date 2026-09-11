@@ -183,6 +183,17 @@
     border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:17px;cursor:pointer;
     display:flex;align-items:center;justify-content:center}
 
+  .rkRow{display:flex;gap:8px}
+  .rkInput{flex:1;min-width:0;padding:11px 12px;border-radius:10px;border:1px solid var(--line);
+    background:#0c1119;color:var(--txt);font-size:14px}
+  .rkInput:focus{outline:none;border-color:var(--gold)}
+  #rkList .ach.top1{border-color:var(--gold)}
+  #rkList .ach.top2{border-color:#c9d3e2}
+  #rkList .ach.top3{border-color:#d99a5b}
+  #rkList .ach.me{background:linear-gradient(90deg,rgba(255,207,74,.14),transparent)}
+  .test-badge{text-align:center;font-size:11.5px;color:var(--red);margin-bottom:6px}
+  .hidden{display:none!important}
+
   @media(max-width:380px){ h1{font-size:29px} .prob .big{font-size:36px} }
 </style>
 </head>
@@ -227,6 +238,7 @@
     <button data-tab="stats" class="active">統計</button>
     <button data-tab="table">確率表</button>
     <button data-tab="ach">実績</button>
+    <button data-tab="rank">世界</button>
     <button data-tab="set">設定</button>
   </nav>
 
@@ -244,6 +256,22 @@
     <div class="achList" id="achList"></div>
   </div>
 
+  <div class="tab" id="tab-rank">
+    <div class="test-badge hidden" id="rkTestBadge">🧪 テストモード（登録は送信されません）</div>
+    <div class="achHead">歴代最高連勝（到達確率）で世界のプレイヤーと競う</div>
+    <div class="stat wide" style="margin-bottom:10px">
+      <div class="k">あなたの自己ベスト</div>
+      <div class="v" id="rkMyBest">0 連勝</div>
+    </div>
+    <div class="rkRow">
+      <input id="rkName" class="rkInput" maxlength="12" placeholder="なまえ（12文字まで）">
+      <button class="btnAuto" id="rkSubmitBtn">登録する</button>
+    </div>
+    <div class="locked" id="rkNote" style="margin:6px 2px 12px"></div>
+    <div class="achList" id="rkList"><div class="ach">読み込み中…</div></div>
+    <button class="btnAuto" id="rkRefresh" style="width:100%;margin-top:10px">🔄 ランキング更新</button>
+  </div>
+
   <div class="tab set" id="tab-set">
     <p>セーブデータはこのブラウザ内にのみ保存されます。</p>
     <button id="reset">データを全消去してやり直す</button>
@@ -258,11 +286,14 @@
 <div id="banner"></div>
 <div id="bignum"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/version.js"></script>
 <script>
 (function(){
 "use strict";
 const KEY="onein8192_v1";
+/* ?test / ?spectate では世界ランキングに送信しない */
+const TEST_MODE = /[?&](test|spectate)\b/.test(location.search);
 const MAXRUNG=25; // 1/2 ... 1/33554432
 const GOAL=13;    // 1/8192
 
@@ -275,6 +306,7 @@ const DEF={
   fallFrom5:0, fallFrom8:0, fallFrom10:0, fallFrom12:0, fallFrom13:0,
   edgeCount:0,
   muted:false,
+  bestSubmitted:0,
   autoUnlocked:false,
   firstClearFlips:null,
   playMs:0,
@@ -287,6 +319,103 @@ function load(){
 }
 let saveT=0;
 function save(){ if(wiped) return; clearTimeout(saveT); saveT=setTimeout(()=>{ if(wiped)return; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} },120); }
+
+// ---------- 世界ランキング（Supabase） ----------
+const RANK_NAME_KEY="one8192_name";
+const Ranking=(()=>{
+  const SUPABASE_URL="https://kifnzvktwbomxthzvvgy.supabase.co";
+  // 相乗りプロジェクトの共通anonキー(JWT形式)。新形式publishable keyはINSERTが403で弾かれるため使わない。
+  const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZm56dmt0d2JvbXh0aHp2dmd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MzgxMzgsImV4cCI6MjA5MzQxNDEzOH0.M7nXP-u--6J_6rRpgz1cJj21_7KX6MtfTmZy77Xf_IE";
+  const TABLE="one8192_scores";
+  let client=null;
+  function sb(){
+    if(client) return client;
+    if(!window.supabase || !window.supabase.createClient) return null;
+    // 共通オリジン(kaikomziu.github.io)で他ゲームのSupabaseログインを拾わないよう、認証状態は一切持たせない。
+    client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+      auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
+      global:{headers:{Authorization:"Bearer "+SUPABASE_KEY}},
+    });
+    return client;
+  }
+  async function fetchTop(limit){
+    const c=sb(); if(!c) throw new Error("接続できませんでした");
+    const {data,error}=await c.from(TABLE).select("name,best_streak,created_at")
+      .order("best_streak",{ascending:false}).order("created_at",{ascending:true}).limit(limit||50);
+    if(error) throw error;
+    return data||[];
+  }
+  async function estimateRank(best){
+    const c=sb(); if(!c) return null;
+    const {count,error}=await c.from(TABLE).select("id",{count:"exact",head:true}).gt("best_streak",best);
+    if(error) return null;
+    return (count||0)+1;
+  }
+  async function submit(name,best){
+    const c=sb(); if(!c) throw new Error("接続できませんでした");
+    const cleanName=String(name).trim().slice(0,12);
+    if(!cleanName) throw new Error("なまえを入力してください");
+    if(!(Number.isFinite(best) && best>=1 && best<=60)) throw new Error("不正なスコアです");
+    const {error}=await c.from(TABLE).insert({name:cleanName, best_streak:Math.round(best)});
+    if(error) throw error;
+  }
+  return {fetchTop, estimateRank, submit};
+})();
+
+function rkEsc(s){ return String(s).replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c])); }
+
+function refreshRankUI(noteToo){
+  $("#rkTestBadge").classList.toggle("hidden", !TEST_MODE);
+  $("#rkMyBest").textContent = S.best+" 連勝"+(S.best? "（"+probStr(S.best)+"）":"");
+  const canSubmit = !TEST_MODE && S.best>=1 && S.best>(S.bestSubmitted||0);
+  $("#rkSubmitBtn").disabled = !canSubmit;
+  $("#rkSubmitBtn").textContent = S.bestSubmitted ? "更新する" : "登録する";
+  if(noteToo===false) return; // 送信結果メッセージを上書きしない
+  const note=$("#rkNote");
+  if(TEST_MODE) note.textContent="テストモードのため登録は無効です";
+  else if(!S.best) note.textContent="まず1回でも的中させると登録できます";
+  else if(!canSubmit) note.textContent="現在の自己ベストは登録済みです（"+S.bestSubmitted+"連勝）";
+  else note.textContent="";
+}
+
+async function loadRankList(){
+  const list=$("#rkList");
+  list.innerHTML='<div class="ach">読み込み中…</div>';
+  try{
+    const rows=await Ranking.fetchTop(50);
+    if(!rows.length){ list.innerHTML='<div class="ach">まだ記録がありません。1位を狙おう！</div>'; return; }
+    const myName=(localStorage.getItem(RANK_NAME_KEY)||"").trim();
+    let myMarked=false;
+    list.innerHTML=rows.map((r,i)=>{
+      const pos=i+1;
+      const cls=["ach","got",pos<=3?"top"+pos:""];
+      if(!myMarked && S.bestSubmitted && r.name===myName && r.best_streak===S.bestSubmitted){ cls.push("me"); myMarked=true; }
+      const medal = pos===1?"🥇":pos===2?"🥈":pos===3?"🥉":String(pos);
+      return '<div class="'+cls.join(" ")+'"><div class="ic">'+medal+'</div><div><div class="t">'+rkEsc(r.name)+
+        '</div><div class="d">'+r.best_streak+'連勝 ・ '+probStr(r.best_streak)+'</div></div></div>';
+    }).join("");
+  }catch(e){
+    list.innerHTML='<div class="ach">読み込みに失敗しました<br>'+rkEsc(e.message||e)+'</div>';
+  }
+}
+
+async function doRankSubmit(){
+  if(TEST_MODE) return;
+  const name=$("#rkName").value.trim();
+  if(!name){ $("#rkNote").textContent="なまえを入力してください"; return; }
+  $("#rkSubmitBtn").disabled=true; $("#rkNote").textContent="送信中…";
+  try{
+    await Ranking.submit(name, S.best);
+    localStorage.setItem(RANK_NAME_KEY, name.slice(0,12));
+    S.bestSubmitted=S.best; save();
+    const pos=await Ranking.estimateRank(S.best);
+    $("#rkNote").textContent="✅ 登録しました！"+(pos?("　現在 約"+pos+"位"):"");
+    await loadRankList();
+  }catch(e){
+    $("#rkNote").textContent="登録に失敗しました（"+(e.message||e)+"）";
+  }
+  refreshRankUI(false);
+}
 
 // ---------- ランタイム ----------
 let streak=0, failsInRow=0, runMax=0, busy=false, auto=false, autoTimer=null;
@@ -314,6 +443,7 @@ function render(){
   $("#autoRow").style.display = S.autoUnlocked ? "flex":"none";
   $("#autoLock").style.display = S.autoUnlocked ? "none":"block";
   setHeat();
+  refreshRankUI();
 }
 
 function renderLadder(){
@@ -830,6 +960,8 @@ sndBtn.addEventListener("click",()=>{
   if(!S.muted){ audio(); tone(660,.12,"triangle",0,.4); }
 });
 syncSnd();
+$("#rkSubmitBtn").addEventListener("click", doRankSubmit);
+$("#rkRefresh").addEventListener("click", loadRankList);
 $("#reset").addEventListener("click",()=>{
   if(confirm("本当に全データを消去しますか？（連勝記録・実績・統計すべて）")){
     wiped=true; stopAuto(); localStorage.removeItem(KEY); location.reload();
@@ -841,6 +973,7 @@ document.querySelectorAll("nav button").forEach(b=>{
     document.querySelectorAll(".tab").forEach(x=>x.classList.remove("show"));
     b.classList.add("active");
     $("#tab-"+b.dataset.tab).classList.add("show");
+    if(b.dataset.tab==="rank"){ refreshRankUI(); loadRankList(); }
   });
 });
 
@@ -858,6 +991,7 @@ document.addEventListener("visibilitychange",()=>{ accrue(); if(!document.hidden
     c.notes.map(n=>'<li>'+n+'</li>').join("")+'</ul></div>').join("");
 })();
 
+$("#rkName").value = localStorage.getItem(RANK_NAME_KEY) || "";
 check();
 render();
 })();
